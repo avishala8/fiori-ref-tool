@@ -1,12 +1,16 @@
 {
   "name": "sap-fiori-proxy",
   "version": "1.0.0",
+  "description": "SAP Fiori Target Mapping Fetcher and Node Proxy",
   "main": "proxy.js",
   "scripts": {
     "start": "node proxy.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
