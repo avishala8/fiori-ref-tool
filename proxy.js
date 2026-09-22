@@ -9,7 +9,13 @@ app.use(cors());
 app.use(express.json());
 
 // Serve index.html and static files from the root directory
-app.use(express.static(__dirname));
+// Tell Express to serve static files from the 'public' folder
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+    // Send the file from the 'public' folder
+    res.sendFile(path.join(__dirname, 'public', 'index.html')); 
+});
 
 // Session memory state
 let activeSession = {
