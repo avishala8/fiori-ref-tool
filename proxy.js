@@ -9,7 +9,8 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    // Replace 'targetMapping.html' with your actual filename
+    res.sendFile(path.join(__dirname, 'fiori-target-mappings.html'));
 });
 
 // Session memory state
