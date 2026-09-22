@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAP Fiori Target Mapping Fetcher</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      font-size: 14px; line-height: 1.6;
+      background: #f4f5f7; color: #1f2328; min-height: 100vh;
+    }
+    header {
+      background: #003153; color: #fff;
+      padding: 14px 24px; display: flex; align-items: center; gap: 12px;
+    }
+    header .logo { font-size: 20px; font-weight: 700; letter-spacing: -.5px; color: #00d1f9; }
+    header h1 { font-size: 16px; font-weight: 600; color: #e0e6ef; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+    /* card */
+    .card { background: #fff; border: 1px solid #dde1e7; border-radius: 8px; padding: 18px 22px; margin-bottom: 18px; }
+    .card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #57606a; margin-bottom: 12px; }
+
+    /* forms */
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 200px; gap: 12px; align-items: end; }
+    @media(max-width:640px){ .row2,.row3{ grid-template-columns:1fr; } }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #444; }
+    textarea, select, input[type="text"], input[type="password"] {
+      width: 100%; border: 1px solid #c8cdd4; border-radius: 5px;
+      padding: 8px 10px; font-size: 13px; font-family: inherit;
+      background: #fafbfc; outline: none; transition: border-color .15s;
+    }
+    textarea:focus, select:focus, input:focus { border-color: #3b82d4; background: #fff; }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 5px; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; transition: background .15s, opacity .15s;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: #003153; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #00457a; }
+    .btn-success { background: #1a7f37; color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #156430; }
+    .btn-danger  { background: #b91c1c; color: #fff; }
+    .btn-ghost   { background: none; border: 1px solid #c8cdd4; color: #444; }
+    .btn-ghost:hover { background: #f0f2f5; }
+    .action-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
+
+    /* status pill */
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    }
+    .pill-ok    { background: #dcfce7; color: #166534; }
+    .pill-err   { background: #fee2e2; color: #b91c1c; }
+    .pill-warn  { background: #fef9c3; color: #854d0e; }
+    .pill-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot-ok  { background: #16a34a; }
+    .dot-err { background: #dc2626; }
+    .dot-warn{ background: #ca8a04; }
+
+    /* notice */
+    .notice {
+      background: #fff8e1; border: 1px solid #f0c040; border-radius: 6px;
+      padding: 10px 14px; font-size: 12.5px; color: #5a4000; margin-bottom: 16px;
+    }
+    .notice ol { margin: 6px 0 0 18px; line-height: 2; }
+    .notice code { background: #fef3c7; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+    /* session expiry banner */
+    #expiry-banner {
+      display: none; background: #fff3cd; border: 1px solid #ffc107;
+      border-radius: 6px; padding: 9px 14px; font-size: 12.5px; color: #664d03;
+      margin-bottom: 14px; align-items: center; gap: 10px;
+    }
+
+    /* progress */
+    #progress-wrap { display: none; margin-bottom: 16px; }
+    .prog-bg { background: #e5e7eb; border-radius: 99px; height: 8px; overflow: hidden; }
+    .prog-fill { height: 100%; background: #3b82d4; border-radius: 99px; width: 0%; transition: width .3s; }
+    .prog-label { font-size: 12px; color: #57606a; margin-top: 4px; }
+
+    /* results */
+    #results-section { display: none; }
+    .res-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .res-header h2 { font-size: 16px; font-weight: 700; }
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .badge-blue  { background: #dbeafe; color: #1d4ed8; }
+    .badge-red   { background: #fee2e2; color: #b91c1c; }
+    .badge-green { background: #dcfce7; color: #166534; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      background: #f7f8fa; text-align: left; padding: 9px 12px;
+      border-bottom: 2px solid #dde1e7; font-weight: 700; font-size: 12px;
+      color: #57606a; white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid #eef0f3; }
+    tbody tr:hover { background: #f7f9fc; }
+    td { padding: 8px 12px; vertical-align: top; }
+    td.mono { font-family: "Consolas","SFMono-Regular",monospace; font-size: 12px; }
+    .tm-count { font-weight: 700; color: #1d4ed8; }
+    .tm-none  { color: #999; font-style: italic; font-size: 12px; }
+    .error-text { color: #b91c1c; font-size: 12px; }
+
+    /* Header Copy Buttons */
+    .th-wrap { display: flex; align-items: center; gap: 6px; }
+    .th-copy-btn {
+      background: #fff; border: 1px solid #d0d7de; border-radius: 4px;
+      cursor: pointer; color: #57606a; font-size: 11px; padding: 1px 5px;
+      line-height: 1.2; transition: all .15s; font-weight: 400;
+    }
+    .th-copy-btn:hover { background: #003153; color: #fff; border-color: #003153; }
+
+    /* JSON expand */
+    .expand-btn { background: none; border: none; cursor: pointer; color: #3b82d4; font-size: 12px; font-weight: 600; padding: 0; text-decoration: underline; }
+    .copy-btn   { background: none; border: none; cursor: pointer; color: #57606a; font-size: 11px; padding: 0 0 0 8px; text-decoration: underline; }
+    .copy-btn:hover { color: #1f2328; }
+    .json-panel { display: none; margin-top: 8px; background: #1e1e2e; border-radius: 6px; padding: 14px; overflow-x: auto; }
+    .json-panel.open { display: block; }
+    .json-panel pre { font-family: "Consolas","SFMono-Regular",monospace; font-size: 11.5px; color: #cdd6f4; white-space: pre-wrap; word-break: break-all; }
+    .kv-chip {
+      display: inline-block; background: #eef2ff; color: #3730a3;
+      border: 1px solid #c7d2fe; border-radius: 4px;
+      font-family: "Consolas","SFMono-Regular",monospace; font-size: 11px;
+      padding: 1px 6px; margin: 1px 2px 1px 0;
+    }
+
+    /* spinner */
+    .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer { text-align: center; font-size: 11px; color: #999; padding: 24px 0 14px; border-top: 1px solid #e5e7eb; margin-top: 28px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SAP</div>
+  <h1>Fiori Target Mapping Fetcher</h1>
+</header>
+
+<div id="expiry-banner">
+  ⚠ Your session has expired. Please sign in again.
+  <button class="btn btn-primary" style="padding:4px 12px;font-size:12px;" onclick="showLoginForm()">Sign In</button>
+</div>
+
+<div class="container">
+
+  <!-- NOTICE -->
+  <div class="notice">
+    <strong>One-time setup:</strong>
+    <ol>
+      <li>Open a terminal and run: <code>node proxy.js</code> &nbsp;(keep it running)</li>
+      <li>Sign in below with your SAP S-User credentials — the proxy handles authentication locally</li>
+    </ol>
+    <div style="margin-top:6px;color:#7a6000;">
+      Your credentials are sent only to <strong>accounts.sap.com</strong> — the same IDP as the Fiori App Reference Library website.
+      They are never stored and never leave your machine.
+      Requires <a href="https://nodejs.org" target="_blank" style="color:#5a4000;">Node.js</a> (v16+) and <code>proxy.js</code> in the same folder.
+    </div>
+  </div>
+
+  <!-- AUTH CARD -->
+  <div class="card">
+    <div class="card-title">Authentication</div>
+    <div id="status-row" style="margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="status-pill pill-warn" id="status-pill">
+        <span class="pill-dot dot-warn"></span>
+        <span id="status-text">Not connected — proxy not running or not signed in</span>
+      </span>
+      <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;" onclick="checkStatus()">↺ Refresh</button>
+      <span id="expiry-countdown" style="font-size:11px;color:#57606a;"></span>
+    </div>
+    <div class="row2" id="login-form">
+      <div>
+        <label for="suser">SAP S-User / Username</label>
+        <input type="text" id="suser" placeholder="S0000000000" autocomplete="username" />
+      </div>
+      <div>
+        <label for="spass">Password</label>
+        <input type="password" id="spass" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary" id="login-btn" onclick="doLogin()">
+        <span id="login-icon">→</span> Sign In
+      </button>
+      <span id="login-error" style="color:#b91c1c;font-size:12px;"></span>
+    </div>
+  </div>
+
+  <!-- INPUT CARD -->
+  <div class="card">
+    <div class="card-title">Input</div>
+    <div class="row3">
+      <div style="grid-column:1/3;">
+        <label for="app-ids">App ID(s) <span style="font-weight:400;color:#888">(one per line, or comma-separated)</span></label>
+        <textarea id="app-ids" placeholder="F0001&#10;F1234&#10;F5678, F9012"></textarea>
+      </div>
+      <div>
+        <label for="release">SAP Release</label>
+        <select id="release" onchange="updateAutoHint()">
+          <option value="auto">⟳ Auto — latest release per app</option>
+          <option disabled>─────────────────</option>
+          <option disabled>Loading releases…</option>
+        </select>
+        <div id="auto-hint" style="font-size:11px;color:#57606a;margin-top:4px;">
+          Auto mode tries each release newest→oldest and uses the first one the app appears in.
+          Slower for bulk lookups but works across mixed app portfolios.
+        </div>
+      </div>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary" id="fetch-btn" onclick="startFetch()" disabled>
+        <span id="fetch-icon">⬇</span> Fetch Target Mappings
+      </button>
+      <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+      <button class="btn btn-success" id="export-btn" style="display:none;" onclick="exportExcel()">
+        ⬇ Export to Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progress-wrap">
+    <div class="prog-bg"><div class="prog-fill" id="prog-bar"></div></div>
+    <div class="prog-label" id="prog-label">Starting…</div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results-section">
+    <div class="res-header">
+      <h2>Results <span class="badge badge-blue" id="count-badge">0 apps</span></h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="stat-badges"></div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th><div class="th-wrap">App ID <button class="th-copy-btn" onclick="copyColumn(0, this)" title="Copy all App IDs">⎘ Copy Column</button></div></th>
+            <th><div class="th-wrap">App Name <button class="th-copy-btn" onclick="copyColumn(1, this)" title="Copy all App Names">⎘ Copy Column</button></div></th>
+            <th><div class="th-wrap">Release <button class="th-copy-btn" onclick="copyColumn(2, this)" title="Copy all Releases">⎘ Copy Column</button></div></th>
+            <th><div class="th-wrap">Semantic Object <button class="th-copy-btn" onclick="copyColumn(3, this)" title="Copy all Semantic Objects">⎘ Copy Column</button></div></th>
+            <th><div class="th-wrap">Semantic Action <button class="th-copy-btn" onclick="copyColumn(4, this)" title="Copy all Semantic Actions">⎘ Copy Column</button></div></th>
+            <th><div class="th-wrap">Intent <button class="th-copy-btn" onclick="copyColumn(5, this)" title="Copy all Intents">⎘ Copy Column</button></div></th>
+            <th><div class="th-wrap">Tile Title <button class="th-copy-btn" onclick="copyColumn(6, this)" title="Copy all Tile Titles">⎘ Copy Column</button></div></th>
+            <th><div class="th-wrap">Parameters <button class="th-copy-btn" onclick="copyColumn(7, this)" title="Copy all Parameters">⎘ Copy Column</button></div></th>
+            <th style="text-align:center;"><div class="th-wrap" style="justify-content:center;"># TMs <button class="th-copy-btn" onclick="copyColumn(8, this)" title="Copy all counts">⎘ Copy Column</button></div></th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<footer>Made with IBM Bob</footer>
+
+<script>
+const PROXY = 'http://127.0.0.1:3030';
+let allResults = [];
+let expiryTimer = null;   // countdown interval ID
+
+/* ── status / login ── */
+async function checkStatus() {
+  try {
+    const r = await fetch(`${PROXY}/status`);
+    const d = await r.json();
+    if (d.loggedIn) {
+      setStatus(true, `Signed in — session valid until ${new Date(d.expiresAt).toLocaleTimeString()}`);
+      enableFetch();
+      startExpiryCountdown(new Date(d.expiresAt).getTime());
+    } else {
+      setStatus(false, 'Proxy running — please sign in');
+      loadReleases();
+    }
+  } catch {
+    setStatus(null, 'Proxy not running — start proxy.js first');
+    document.getElementById('fetch-btn').disabled = true;
+  }
+}
+
+function setStatus(ok, msg) {
+  const pill = document.getElementById('status-pill');
+  const text = document.getElementById('status-text');
+  text.textContent = msg;
+  if (ok === true)  { pill.className = 'status-pill pill-ok';   pill.querySelector('.pill-dot').className = 'pill-dot dot-ok';  }
+  else if (ok === false) { pill.className = 'status-pill pill-warn'; pill.querySelector('.pill-dot').className = 'pill-dot dot-warn'; }
+  else              { pill.className = 'status-pill pill-err';   pill.querySelector('.pill-dot').className = 'pill-dot dot-err'; }
+}
+
+/* ── expiry countdown ── */
+function startExpiryCountdown(expiresMs) {
+  clearInterval(expiryTimer);
+  const cd = document.getElementById('expiry-countdown');
+  const banner = document.getElementById('expiry-banner');
+  const fetchBtn = document.getElementById('fetch-btn');
+  function tick() {
+    const secs = Math.floor((expiresMs - Date.now()) / 1000);
+    if (secs <= 0) {
+      clearInterval(expiryTimer);
+      cd.textContent = '';
+      setStatus(false, 'Session expired — please sign in again');
+      banner.style.display = 'flex';
+      fetchBtn.disabled = true;
+    } else if (secs <= 300) {
+      const m = Math.floor(secs / 60), s = secs % 60;
+      cd.textContent = `(expires in ${m}:${String(s).padStart(2,'0')})`;
+      banner.style.display = 'none';
+    } else {
+      cd.textContent = '';
+      banner.style.display = 'none';
+    }
+  }
+  tick();
+  expiryTimer = setInterval(tick, 10000);
+}
+
+function showLoginForm() {
+  document.getElementById('expiry-banner').style.display = 'none';
+  document.getElementById('spass').value = '';
+  document.getElementById('suser').focus();
+}
+
+async function doLogin() {
+  const u = document.getElementById('suser').value.trim();
+  const p = document.getElementById('spass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!u || !p) { errEl.textContent = 'Please enter username and password.'; return; }
+
+  const btn  = document.getElementById('login-btn');
+  const icon = document.getElementById('login-icon');
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const r = await fetch(`${PROXY}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p }),
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error ?? `HTTP ${r.status}`);
+    setStatus(true, 'Signed in — session valid for 1 hour');
+    enableFetch();
+    startExpiryCountdown(Date.now() + 60 * 60 * 1000);
+    document.getElementById('expiry-banner').style.display = 'none';
+    document.getElementById('spass').value = '';
+  } catch (err) {
+    errEl.textContent = '✗ ' + err.message;
+    setStatus(false, 'Authentication failed');
+  } finally {
+    btn.disabled = false;
+    icon.textContent = '→';
+  }
+}
+
+function enableFetch() {
+  document.getElementById('fetch-btn').disabled = false;
+  loadReleases();
+}
+
+/* ── releases dropdown ── */
+async function loadReleases() {
+  try {
+    const r = await fetch(`${PROXY}/releases`);
+    const releases = await r.json();
+    if (!Array.isArray(releases) || releases.length === 0) return;
+
+    const sel = document.getElementById('release');
+    sel.innerHTML = `
+      <option value="auto">⟳ Auto — latest release per app</option>
+      <option disabled>─────────────────</option>`;
+
+    const groups = {
+      SC:  { label: 'SAP S/4HANA Public Cloud', items: [] },
+      SOP: { label: 'SAP S/4HANA (Private Cloud & On-Premise)', items: [] },
+      BTP: { label: 'SAP BTP', items: [] },
+      W:   { label: 'Wave Releases', items: [] },
+      WD:  { label: 'Wave Downport', items: [] },
+    };
+    for (const rel of releases) {
+      const g = groups[rel.releaseType] ?? groups.W;
+      g.items.push(rel);
+    }
+    for (const [, grp] of Object.entries(groups)) {
+      if (grp.items.length === 0) continue;
+      const og = document.createElement('optgroup');
+      og.label = grp.label;
+      for (const rel of grp.items) {
+        const opt = document.createElement('option');
+        opt.value = rel.releaseId;
+        opt.textContent = `${rel.externalName || rel.releaseName} (${rel.releaseId})`;
+        og.appendChild(opt);
+      }
+      sel.appendChild(og);
+    }
+
+    sel.value = 'auto';
+    updateAutoHint();
+  } catch {
+    // proxy may not be running yet
+  }
+}
+
+function updateAutoHint() {
+  const val = document.getElementById('release').value;
+  document.getElementById('auto-hint').style.display = val === 'auto' ? 'block' : 'none';
+}
+
+/* ── parse app IDs ── */
+function parseAppIds(raw) {
+  return raw.split(/[\n,]+/)
+    .map(s => s.trim().toUpperCase())
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i);
+}
+
+/* ── main fetch ── */
+async function startFetch() {
+  const appIds  = parseAppIds(document.getElementById('app-ids').value);
+  const release = document.getElementById('release').value;
+  if (!appIds.length) { alert('Please enter at least one App ID.'); return; }
+  if (!release)       { alert('Please select a release.'); return; }
+
+  const isAuto = release === 'auto';
+
+  allResults = [];
+  document.getElementById('results-body').innerHTML = '';
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('export-btn').style.display = 'none';
+  document.getElementById('stat-badges').innerHTML = '';
+
+  const progWrap = document.getElementById('progress-wrap');
+  const progBar  = document.getElementById('prog-bar');
+  const progLabel= document.getElementById('prog-label');
+  progWrap.style.display = 'block';
+  progBar.style.width = '0%';
+
+  const btn  = document.getElementById('fetch-btn');
+  const icon = document.getElementById('fetch-icon');
+  btn.disabled = true;
+  icon.innerHTML = '<span class="spinner"></span>';
+
+  let done = 0, ok = 0, err = 0;
+
+  for (const appId of appIds) {
+    progLabel.textContent = `${isAuto ? '⟳ Auto-detecting release for' : 'Fetching'} ${appId} (${done + 1} / ${appIds.length})…`;
+    progBar.style.width = (done / appIds.length * 100) + '%';
+
+    const result = { appId, release, resolvedRelease: null, tms: [], error: null };
+    try {
+      const r = await fetch(`${PROXY}/targetmappings?appId=${encodeURIComponent(appId)}&releaseId=${encodeURIComponent(release)}`);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+      result.tms             = data.tms ?? [];
+      result.resolvedRelease = data.resolvedRelease ?? { releaseId: release };
+      result.appName         = result.tms[0]?.AppName ?? '—';
+      ok++;
+    } catch (e) {
+      result.error = e.message;
+      result.appName = 'Error';
+      err++;
+    }
+    allResults.push(result);
+    renderRow(result);
+    done++;
+  }
+
+  progBar.style.width = '100%';
+  progLabel.textContent = `Done — ${ok} succeeded, ${err} failed.`;
+
+  document.getElementById('stat-badges').innerHTML =
+    `<span class="badge badge-green">${ok} OK</span>` +
+    (err ? `<span class="badge badge-red">${err} Error</span>` : '');
+  document.getElementById('count-badge').textContent = appIds.length + ' app' + (appIds.length !== 1 ? 's' : '');
+  document.getElementById('results-section').style.display = 'block';
+  if (ok > 0) document.getElementById('export-btn').style.display = 'inline-flex';
+
+  btn.disabled = false;
+  icon.textContent = '⬇';
+}
+
+/* ── render row ── */
+function renderRow(result) {
+  const tbody = document.getElementById('results-body');
+  const { appId, appName, tms, error, resolvedRelease } = result;
+  const relLabel = resolvedRelease?.externalName
+    ? `${resolvedRelease.externalName} (${resolvedRelease.releaseId})`
+    : (resolvedRelease?.releaseId ?? '—');
+
+  if (error) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${esc(appId)}</td>
+      <td colspan="8"><span class="error-text">⚠ ${esc(error)}</span></td>
+      <td style="text-align:center;">—</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  const rowId = 'row-' + appId.replace(/\W/g, '_');
+
+  if (tms.length === 0) {
+    const notFoundMsg = resolvedRelease?.releaseId
+      ? `No target mappings in ${esc(relLabel)}`
+      : 'Not found in any release';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${esc(appId)}</td>
+      <td>${esc(appName)}</td>
+      <td class="mono" style="color:#999;font-style:italic;font-size:12px;">${esc(relLabel)}</td>
+      <td colspan="5"><span class="tm-none">${notFoundMsg}</span></td>
+      <td style="text-align:center;"><span class="tm-count">0</span></td>
+      <td>—</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  const soSet     = [...new Set(tms.map(t => t.SemanticObject ?? '—'))].join(', ');
+  const saSet     = [...new Set(tms.map(t => t.SemanticAction  ?? '—'))].join(', ');
+  const intentSet = [...new Set(tms.map(t => `${t.SemanticObject ?? '—'}-${t.SemanticAction ?? '—'}`))].join(', ');
+  const titles    = [...new Set(tms.map(t => t.Title ?? '—').filter(s => s !== '—'))].join(' / ') || '—';
+  const params    = [...new Set(tms.map(t => t.MappingSignatureKeyVal ?? '').filter(Boolean))].join(' | ');
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="mono">${esc(appId)}</td>
+    <td>${esc(appName)}</td>
+    <td class="mono" style="font-size:12px;white-space:nowrap;">${esc(relLabel)}</td>
+    <td class="mono">${esc(soSet)}</td>
+    <td class="mono">${esc(saSet)}</td>
+    <td class="mono">${esc(intentSet)}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(titles)}">${esc(titles)}</td>
+    <td style="max-width:220px;">${renderParams(params)}</td>
+    <td style="text-align:center;"><span class="tm-count">${tms.length}</span></td>
+    <td>
+      <button class="expand-btn" onclick="toggleJson('${rowId}')">▼ JSON</button>
+      <button class="copy-btn" onclick="copyJson('${rowId}')" title="Copy JSON to clipboard">⎘ Copy</button>
+      <div class="json-panel" id="${rowId}">
+        <pre>${esc(JSON.stringify(tms, null, 2))}</pre>
+      </div>
+    </td>`;
+  tbody.appendChild(tr);
+}
+
+/** Copy all row values for a specific column index */
+async function copyColumn(colIndex, btn) {
+  const rows = document.querySelectorAll('#results-body tr');
+  if (!rows.length) return;
+
+  const values = [];
+  rows.forEach(row => {
+    const cell = row.children[colIndex];
+    if (cell) {
+      const txt = (cell.innerText || cell.textContent || '').trim();
+      if (txt) values.push(txt);
+    }
+  });
+
+  if (!values.length) return;
+  const textToCopy = values.join('\n');
+
+  try {
+    await navigator.clipboard.writeText(textToCopy);
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.style.background = '#166534';
+    btn.style.color = '#fff';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 1500);
+  } catch {
+    prompt('Copy column values:', textToCopy);
+  }
+}
+
+/** Render MappingSignatureKeyVal as chips if key=value pairs, else plain text */
+function renderParams(raw) {
+  if (!raw) return '<span style="color:#999">—</span>';
+  const parts = raw.split(/[,;| ]+/).map(s => s.trim()).filter(Boolean);
+  if (parts.length > 1 || (parts.length === 1 && parts[0].includes('='))) {
+    return parts.map(p => `<span class="kv-chip">${esc(p)}</span>`).join('');
+  }
+  return `<span class="mono" style="font-size:12px;">${esc(raw)}</span>`;
+}
+
+function toggleJson(id) {
+  const panel = document.getElementById(id);
+  const btn   = panel.previousElementSibling.previousElementSibling;
+  panel.classList.toggle('open')
+    ? (btn.textContent = '▲ JSON')
+    : (btn.textContent = '▼ JSON');
+}
+
+async function copyJson(id) {
+  const panel = document.getElementById(id);
+  const text  = panel.querySelector('pre').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = panel.previousElementSibling;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  } catch {
+    prompt('Copy this JSON:', text);
+  }
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── clear ── */
+function clearAll() {
+  document.getElementById('app-ids').value = '';
+  document.getElementById('results-body').innerHTML = '';
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('export-btn').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('prog-bar').style.width = '0%';
+  allResults = [];
+}
+
+/* ── Excel export ── */
+function exportExcel() {
+  const rows = [[
+    'App ID','App Name','Release (ID)','Release (Name)',
+    'Semantic Object','Semantic Action','Intent',
+    'Mapping Parameters (KeyVal)',
+    'Tile Title','Tile Subtitle','Tile Information',
+    'Applauncher Params',
+    'Application Type','UI Technology',
+    'All Fields (JSON)',
+  ]];
+  for (const result of allResults) {
+    const relId   = result.resolvedRelease?.releaseId   ?? result.release ?? '';
+    const relName = result.resolvedRelease?.externalName ?? result.resolvedRelease?.releaseName ?? '';
+    if (result.error) {
+      rows.push([result.appId, 'ERROR: ' + result.error, relId, relName, '', '', '', '', '', '', '', '', '', '', '']);
+      continue;
+    }
+    if (result.tms.length === 0) {
+      rows.push([result.appId, result.appName, relId, relName, '(no target mappings)', '', '', '', '', '', '', '', '', '', '']);
+      continue;
+    }
+    for (const tm of result.tms) {
+      const intent = `${tm.SemanticObject ?? ''}-${tm.SemanticAction ?? ''}`;
+      rows.push([
+        result.appId, result.appName, relId, relName,
+        tm.SemanticObject        ?? '',
+        tm.SemanticAction        ?? '',
+        intent,
+        tm.MappingSignatureKeyVal ?? '',
+        tm.Title                 ?? '',
+        tm.Subtitle              ?? '',
+        tm.Information           ?? '',
+        tm.ApplauncherParams     ?? '',
+        tm.ApplicationType       ?? '',
+        tm.UITechnology          ?? '',
+        JSON.stringify(tm),
+      ]);
+    }
+  }
+  const xml = buildXlsXml(rows);
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fiori_target_mappings.xls';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function buildXlsXml(rows) {
+  const xmlRows = rows.map((row, ri) => {
+    const cells = row.map(cell => {
+      const val = String(cell ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      return `<Cell><Data ss:Type="String">${val}</Data></Cell>`;
+    });
+    return `<Row>${cells.join('')}</Row>`;
+  }).join('\n');
+  return `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="s1">
+   <Interior ss:Color="#003153" ss:Pattern="Solid"/>
+   <Font ss:Color="#FFFFFF" ss:Bold="1"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Target Mappings">
+  <Table>
+   ${xmlRows.replace('<Row>', '<Row ss:StyleID="s1">')}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+}
+
+/* ── init ── */
+checkStatus();
+</script>
+</body>
+</html>
