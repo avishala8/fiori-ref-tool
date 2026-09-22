@@ -47,7 +47,6 @@
     .btn-primary:hover:not(:disabled) { background: #00457a; }
     .btn-success { background: #1a7f37; color: #fff; }
     .btn-success:hover:not(:disabled) { background: #156430; }
-    .btn-danger  { background: #b91c1c; color: #fff; }
     .btn-ghost   { background: none; border: 1px solid #c8cdd4; color: #444; }
     .btn-ghost:hover { background: #f0f2f5; }
     .action-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
@@ -70,7 +69,6 @@
       background: #fff8e1; border: 1px solid #f0c040; border-radius: 6px;
       padding: 10px 14px; font-size: 12.5px; color: #5a4000; margin-bottom: 16px;
     }
-    .notice ol { margin: 6px 0 0 18px; line-height: 2; }
     .notice code { background: #fef3c7; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
 
     /* session expiry banner */
@@ -153,27 +151,13 @@
 
 <div class="container">
 
-  <!-- NOTICE -->
-  <div class="notice">
-    <strong>One-time setup:</strong>
-    <ol>
-      <li>Open a terminal and run: <code>node proxy.js</code> &nbsp;(keep it running)</li>
-      <li>Sign in below with your SAP S-User credentials — the proxy handles authentication locally</li>
-    </ol>
-    <div style="margin-top:6px;color:#7a6000;">
-      Your credentials are sent only to <strong>accounts.sap.com</strong> — the same IDP as the Fiori App Reference Library website.
-      They are never stored and never leave your machine.
-      Requires <a href="https://nodejs.org" target="_blank" style="color:#5a4000;">Node.js</a> (v16+) and <code>proxy.js</code> in the same folder.
-    </div>
-  </div>
-
   <!-- AUTH CARD -->
   <div class="card">
     <div class="card-title">Authentication</div>
     <div id="status-row" style="margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="status-pill pill-warn" id="status-pill">
         <span class="pill-dot dot-warn"></span>
-        <span id="status-text">Not connected — proxy not running or not signed in</span>
+        <span id="status-text">Not connected — checking proxy connection...</span>
       </span>
       <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;" onclick="checkStatus()">↺ Refresh</button>
       <span id="expiry-countdown" style="font-size:11px;color:#57606a;"></span>
@@ -213,7 +197,6 @@
         </select>
         <div id="auto-hint" style="font-size:11px;color:#57606a;margin-top:4px;">
           Auto mode tries each release newest→oldest and uses the first one the app appears in.
-          Slower for bulk lookups but works across mixed app portfolios.
         </div>
       </div>
     </div>
@@ -261,16 +244,16 @@
     </div>
   </div>
 
-</div><!-- /container -->
+</div>
 
-<footer>Made with IBM Bob</footer>
+<footer>Target Mapping Fetcher Tool</footer>
 
 <script>
-const PROXY = 'http://127.0.0.1:3030';
+// Automatically routes requests to current domain (Render URL or localhost)
+const PROXY = window.location.origin;
 let allResults = [];
-let expiryTimer = null;   // countdown interval ID
+let expiryTimer = null;
 
-/* ── status / login ── */
 async function checkStatus() {
   try {
     const r = await fetch(`${PROXY}/status`);
@@ -280,11 +263,11 @@ async function checkStatus() {
       enableFetch();
       startExpiryCountdown(new Date(d.expiresAt).getTime());
     } else {
-      setStatus(false, 'Proxy running — please sign in');
+      setStatus(false, 'Proxy connected — please sign in');
       loadReleases();
     }
   } catch {
-    setStatus(null, 'Proxy not running — start proxy.js first');
+    setStatus(null, 'Proxy service unreachable');
     document.getElementById('fetch-btn').disabled = true;
   }
 }
@@ -298,7 +281,6 @@ function setStatus(ok, msg) {
   else              { pill.className = 'status-pill pill-err';   pill.querySelector('.pill-dot').className = 'pill-dot dot-err'; }
 }
 
-/* ── expiry countdown ── */
 function startExpiryCountdown(expiresMs) {
   clearInterval(expiryTimer);
   const cd = document.getElementById('expiry-countdown');
@@ -370,7 +352,6 @@ function enableFetch() {
   loadReleases();
 }
 
-/* ── releases dropdown ── */
 async function loadReleases() {
   try {
     const r = await fetch(`${PROXY}/releases`);
@@ -387,10 +368,9 @@ async function loadReleases() {
       SOP: { label: 'SAP S/4HANA (Private Cloud & On-Premise)', items: [] },
       BTP: { label: 'SAP BTP', items: [] },
       W:   { label: 'Wave Releases', items: [] },
-      WD:  { label: 'Wave Downport', items: [] },
     };
     for (const rel of releases) {
-      const g = groups[rel.releaseType] ?? groups.W;
+      const g = groups[rel.releaseType] ?? groups.SOP;
       g.items.push(rel);
     }
     for (const [, grp] of Object.entries(groups)) {
@@ -408,9 +388,7 @@ async function loadReleases() {
 
     sel.value = 'auto';
     updateAutoHint();
-  } catch {
-    // proxy may not be running yet
-  }
+  } catch {}
 }
 
 function updateAutoHint() {
@@ -418,7 +396,6 @@ function updateAutoHint() {
   document.getElementById('auto-hint').style.display = val === 'auto' ? 'block' : 'none';
 }
 
-/* ── parse app IDs ── */
 function parseAppIds(raw) {
   return raw.split(/[\n,]+/)
     .map(s => s.trim().toUpperCase())
@@ -426,15 +403,12 @@ function parseAppIds(raw) {
     .filter((v, i, a) => a.indexOf(v) === i);
 }
 
-/* ── main fetch ── */
 async function startFetch() {
   const appIds  = parseAppIds(document.getElementById('app-ids').value);
   const release = document.getElementById('release').value;
   if (!appIds.length) { alert('Please enter at least one App ID.'); return; }
-  if (!release)       { alert('Please select a release.'); return; }
 
   const isAuto = release === 'auto';
-
   allResults = [];
   document.getElementById('results-body').innerHTML = '';
   document.getElementById('results-section').style.display = 'none';
@@ -491,7 +465,6 @@ async function startFetch() {
   icon.textContent = '⬇';
 }
 
-/* ── render row ── */
 function renderRow(result) {
   const tbody = document.getElementById('results-body');
   const { appId, appName, tms, error, resolvedRelease } = result;
@@ -554,7 +527,6 @@ function renderRow(result) {
   tbody.appendChild(tr);
 }
 
-/** Copy all row values for a specific column index */
 async function copyColumn(colIndex, btn) {
   const rows = document.querySelectorAll('#results-body tr');
   if (!rows.length) return;
@@ -587,7 +559,6 @@ async function copyColumn(colIndex, btn) {
   }
 }
 
-/** Render MappingSignatureKeyVal as chips if key=value pairs, else plain text */
 function renderParams(raw) {
   if (!raw) return '<span style="color:#999">—</span>';
   const parts = raw.split(/[,;| ]+/).map(s => s.trim()).filter(Boolean);
@@ -623,7 +594,6 @@ function esc(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* ── clear ── */
 function clearAll() {
   document.getElementById('app-ids').value = '';
   document.getElementById('results-body').innerHTML = '';
@@ -634,7 +604,6 @@ function clearAll() {
   allResults = [];
 }
 
-/* ── Excel export ── */
 function exportExcel() {
   const rows = [[
     'App ID','App Name','Release (ID)','Release (Name)',
@@ -684,7 +653,7 @@ function exportExcel() {
 }
 
 function buildXlsXml(rows) {
-  const xmlRows = rows.map((row, ri) => {
+  const xmlRows = rows.map((row) => {
     const cells = row.map(cell => {
       const val = String(cell ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       return `<Cell><Data ss:Type="String">${val}</Data></Cell>`;
@@ -708,7 +677,6 @@ function buildXlsXml(rows) {
 </Workbook>`;
 }
 
-/* ── init ── */
 checkStatus();
 </script>
 </body>
